@@ -106,10 +106,10 @@ ${details.join('\n\n')}
 
 Expected continuation now: ${after?.pvSan.join(' ') || 'none'}
 
-For each of the moves above, in order, explain what it does and why it was played: its idea, threats or plans it creates, and whether it was good. For my move, if it was not the best, explain concretely what the engine move would have achieved. For the bot's move, if it was a mistake, hint at how I can exploit it without spelling out the full line. Use the move (in bold) as the start of each part.
-Finish with one line starting with **Lesson:** that I can remember for future games, and one line starting with **Next:** about what to focus on in the coming moves.
+Be brief. For each move above, in order, write one or two short sentences starting with the move in bold: what it does and whether it was good. If my move was not the best, say in one sentence why the engine move is better. If the bot's move was a mistake, say in a few words how I can exploit it.
+Then one line starting with **Lesson:** (one short sentence).
 
-Keep it under 230 words.`
+No intro, no headings, no extra sections. Under 90 words in total.`
 }
 
 export function askPrompt(opts: {

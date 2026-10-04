@@ -70,9 +70,3 @@ export function requestFields(s: CoachSettings) {
     command: s.agent === 'custom' ? s.custom.command : undefined,
   }
 }
-
-export function describeSettings(s: CoachSettings) {
-  const cfg = s[s.agent]
-  const model = cfg.model.trim() || 'default model'
-  return `${AGENT_LABEL[s.agent]} · ${model}${cfg.effort ? ` · ${cfg.effort}` : ''}`
-}

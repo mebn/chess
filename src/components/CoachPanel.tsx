@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import Markdown from 'react-markdown'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { CLASSIFICATION_LABEL, formatScore, type Classification, type PositionEval } from '../lib/analysis'
 import { moveLabel, type Color, type MoveRecord } from '../lib/coach'
 import type { CoachText, ThreadEntry } from '../hooks/useGame'
+import { describeSan } from '../lib/notation'
+import { SquareMarkdown } from './SquareText'
 
 export type PlyView = {
   move: MoveRecord
@@ -23,14 +24,15 @@ function CoachMarkdown({ entry }: { entry: CoachText }) {
   if (entry.status === 'loading' && !entry.text) return <div className="typing"><span /><span /><span /></div>
   return (
     <div className={`coach-text ${entry.status === 'error' ? 'error' : ''}`}>
-      <Markdown>{entry.text}</Markdown>
+      <SquareMarkdown>{entry.text}</SquareMarkdown>
     </div>
   )
 }
 
 const MISTAKES: Classification[] = ['inaccuracy', 'mistake', 'blunder']
 
-export function AnalysisCard(props: {
+/** Body of the "Move analysis" tab. */
+export function AnalysisPanel(props: {
   moveNumber: number
   plies: PlyView[]
   playerColor: Color
@@ -38,21 +40,10 @@ export function AnalysisCard(props: {
   canExplain: boolean
   waitingForReply: boolean
   onExplain: () => void
-  autoExplain: boolean
-  onToggleAuto: (v: boolean) => void
 }) {
-  const { moveNumber, plies, playerColor, explanation, canExplain, waitingForReply, onExplain, autoExplain, onToggleAuto } = props
+  const { moveNumber, plies, playerColor, explanation, canExplain, waitingForReply, onExplain } = props
 
   return (
-    <section className="card analysis-card">
-      <div className="card-head">
-        <h3>Move analysis</h3>
-        <label className="toggle" title="Explain every full move automatically">
-          <input type="checkbox" checked={autoExplain} onChange={(e) => onToggleAuto(e.target.checked)} />
-          <span>Auto</span>
-        </label>
-      </div>
-
       <div className="card-body">
         {plies.length === 0 && (
           <p className="muted small">After each full move (White and Black) the coach explains both moves here, along with what the engine would have played.</p>
@@ -64,7 +55,7 @@ export function AnalysisCard(props: {
               {plies.map(({ move, before, after, classification }) => (
                 <div className="ply" key={move.ply}>
                   <div className="move-summary">
-                    <span className="move-title">{moveLabel(move)}</span>
+                    <span className="move-title" data-tip={describeSan(move.san) ?? undefined}>{moveLabel(move)}</span>
                     <span className="muted small">{move.color === playerColor ? 'You' : 'Bot'}</span>
                     {classification && <span className={`badge ${classification}`}>{CLASSIFICATION_LABEL[classification]}</span>}
                   </div>
@@ -93,11 +84,23 @@ export function AnalysisCard(props: {
           </>
         )}
       </div>
-    </section>
   )
 }
 
-export function AskCard({ thread, onAsk, agentLabel }: { thread: ThreadEntry[]; onAsk: (q: string) => void; agentLabel: string }) {
+type CoachTab = 'analysis' | 'ask' | 'review'
+
+/** Right column: "Move analysis", "Ask your coach" and "Game review" as tabs in one card. */
+export function CoachTabs(props: {
+  analysis: ReactNode
+  analysisLoading: boolean
+  thread: ThreadEntry[]
+  onAsk: (q: string) => void
+  review: CoachText | null
+  canReview: boolean
+  onReview: () => void
+}) {
+  const { analysis, analysisLoading, thread, onAsk, review, canReview, onReview } = props
+  const [tab, setTab] = useState<CoachTab>('analysis')
   const [question, setQuestion] = useState('')
   const bodyRef = useRef<HTMLDivElement>(null)
   const last = thread[thread.length - 1]
@@ -105,8 +108,8 @@ export function AskCard({ thread, onAsk, agentLabel }: { thread: ThreadEntry[]; 
   // Keep the newest answer in view while it streams in.
   useEffect(() => {
     const el = bodyRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [thread.length, last?.answer])
+    if (el && tab === 'ask') el.scrollTop = el.scrollHeight
+  }, [tab, thread.length, last?.answer])
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -117,48 +120,63 @@ export function AskCard({ thread, onAsk, agentLabel }: { thread: ThreadEntry[]; 
   }
 
   return (
-    <section className="card ask-card">
-      <div className="card-head">
-        <h3>Ask your coach</h3>
-        <span className="muted tiny" title="Change in Settings > Coach settings">{agentLabel}</span>
+    <section className="card coach-card">
+      <div className="card-head tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'analysis'} className={`tab ${tab === 'analysis' ? 'on' : ''}`} onClick={() => setTab('analysis')}>
+          Move analysis
+          {analysisLoading && tab !== 'analysis' && <span className="tab-dot" />}
+        </button>
+        <button role="tab" aria-selected={tab === 'ask'} className={`tab ${tab === 'ask' ? 'on' : ''}`} onClick={() => setTab('ask')}>
+          Ask your coach
+        </button>
+        <button role="tab" aria-selected={tab === 'review'} className={`tab ${tab === 'review' ? 'on' : ''}`} onClick={() => setTab('review')}>
+          Game review
+          {review?.status === 'loading' && tab !== 'review' && <span className="tab-dot" />}
+        </button>
       </div>
-      <div className="card-body" ref={bodyRef}>
-        {thread.length === 0 && (
-          <div className="suggestions">
-            {SUGGESTIONS.map((s) => (
-              <button key={s} className="chip" onClick={() => onAsk(s)}>{s}</button>
-            ))}
-          </div>
-        )}
-        <div className="thread">
-          {thread.map((t, i) => (
-            <div key={i} className="qa">
-              <div className="q">{t.question}</div>
-              <CoachMarkdown entry={{ text: t.answer, status: t.status }} />
-            </div>
-          ))}
-        </div>
-      </div>
-      <form className="ask" onSubmit={submit}>
-        <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about the position…" />
-        <button className="btn" type="submit" disabled={!question.trim()}>Ask</button>
-      </form>
-    </section>
-  )
-}
 
-export function ReviewCard({ review, onReview }: { review: CoachText | null; onReview: () => void }) {
-  return (
-    <section className="card review-card">
-      <div className="card-head">
-        <h3>Game review</h3>
-        {review?.status !== 'loading' && (
-          <button className="btn subtle small" onClick={onReview}>{review ? 'Redo' : 'Review game'}</button>
-        )}
-      </div>
-      <div className="card-body">
-        {review ? <CoachMarkdown entry={review} /> : <p className="muted small">Get a summary of the key moments and what to practice.</p>}
-      </div>
+      {tab === 'analysis' && analysis}
+      {tab === 'ask' && (
+        <>
+          <div className="card-body" ref={bodyRef}>
+            {thread.length === 0 && (
+              <div className="suggestions">
+                {SUGGESTIONS.map((s) => (
+                  <button key={s} className="chip" onClick={() => onAsk(s)}>{s}</button>
+                ))}
+              </div>
+            )}
+            <div className="thread">
+              {thread.map((t, i) => (
+                <div key={i} className="qa">
+                  <div className="q">{t.question}</div>
+                  <CoachMarkdown entry={{ text: t.answer, status: t.status }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <form className="ask" onSubmit={submit}>
+            <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about the position…" />
+            <button className="btn" type="submit" disabled={!question.trim()}>Ask</button>
+          </form>
+        </>
+      )}
+      {tab === 'review' && (
+        <div className="card-body">
+          {review ? (
+            <CoachMarkdown entry={review} />
+          ) : (
+            <p className="muted small">
+              {canReview ? 'Get a summary of the key moments and what to practice.' : 'Play a few moves first, then review the game here.'}
+            </p>
+          )}
+          {review?.status !== 'loading' && (
+            <button className="btn review-btn" onClick={onReview} disabled={!canReview}>
+              {review ? 'Review again' : 'Review game'}
+            </button>
+          )}
+        </div>
+      )}
     </section>
   )
 }

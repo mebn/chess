@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Classification } from '../lib/analysis'
+import { describeSan } from '../lib/notation'
 import type { MoveRecord } from '../lib/coach'
 
 type Props = {
@@ -19,17 +20,23 @@ const SYMBOL: Partial<Record<Classification, string>> = {
 export function MoveList({ moves, classifications, activePly, onSelect }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Keep the active move centered in the horizontal strip (without scrolling the page).
+  const labelCount = Object.keys(classifications).length
+
+  // Follow the game: stay scrolled to the newest move. When reviewing an earlier move, center it instead.
   useEffect(() => {
     const list = listRef.current
-    const active = list?.querySelector<HTMLElement>('.move.active')
     if (!list) return
-    if (!active) {
-      list.scrollLeft = list.scrollWidth
+    const active = list.querySelector<HTMLElement>('.move.active')
+    if (!active || activePly >= moves.length) {
+      list.scrollTo({ left: list.scrollWidth, behavior: 'smooth' })
       return
     }
-    list.scrollTo({ left: active.offsetLeft - list.clientWidth / 2 + active.offsetWidth / 2, behavior: 'smooth' })
-  }, [activePly, moves.length])
+    const listBox = list.getBoundingClientRect()
+    const box = active.getBoundingClientRect()
+    const target = list.scrollLeft + (box.left - listBox.left) - (list.clientWidth - box.width) / 2
+    list.scrollTo({ left: target, behavior: 'smooth' })
+    // Move labels (★, ?!) arrive after the engine rates a move and widen the row, so rerun then too.
+  }, [activePly, moves.length, labelCount])
 
   const rows: [MoveRecord, MoveRecord | undefined][] = []
   for (let i = 0; i < moves.length; i += 2) rows.push([moves[i], moves[i + 1]])
@@ -38,7 +45,7 @@ export function MoveList({ moves, classifications, activePly, onSelect }: Props)
     if (!m) return null
     const c = classifications[m.ply]
     return (
-      <button className={`move ${m.ply === activePly ? 'active' : ''}`} onClick={() => onSelect(m.ply)}>
+      <button className={`move ${m.ply === activePly ? 'active' : ''}`} data-tip={describeSan(m.san) ?? undefined} onClick={() => onSelect(m.ply)}>
         <span>{m.san}</span>
         {c && SYMBOL[c] && <span className={`move-tag ${c}`}>{SYMBOL[c]}</span>}
       </button>

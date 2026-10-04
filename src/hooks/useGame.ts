@@ -21,7 +21,6 @@ type Saved = {
   explanations: Record<string, CoachText>
   thread: ThreadEntry[]
   review: CoachText | null
-  autoExplain: boolean
   resigned: boolean
 }
 
@@ -58,7 +57,6 @@ export function useGame() {
   const [explanations, setExplanations] = useState<Record<string, CoachText>>(saved.explanations ?? {})
   const [thread, setThread] = useState<ThreadEntry[]>(saved.thread ?? [])
   const [review, setReview] = useState<CoachText | null>(saved.review ?? null)
-  const [autoExplain, setAutoExplain] = useState(saved.autoExplain ?? true)
   const [resigned, setResigned] = useState(saved.resigned ?? false)
   const [hint, setHint] = useState<Hint | null>(null)
   const [botThinking, setBotThinking] = useState(false)
@@ -108,13 +106,13 @@ export function useGame() {
 
   // Persist the game so a refresh does not lose it.
   useEffect(() => {
-    const data: Saved = { botId, playerColor, moves, evals, explanations, thread, review, autoExplain, resigned }
+    const data: Saved = { botId, playerColor, moves, evals, explanations, thread, review, resigned }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
     } catch {
       // Storage full or unavailable; the game still works without it.
     }
-  }, [botId, playerColor, moves, evals, explanations, thread, review, autoExplain, resigned])
+  }, [botId, playerColor, moves, evals, explanations, thread, review, resigned])
 
   // Analyse every position in the game that we have not evaluated yet.
   useEffect(() => {
@@ -230,14 +228,14 @@ export function useGame() {
 
   // Auto-explain each full move once White and Black have both played it.
   useEffect(() => {
-    if (!autoExplain || moves.length === 0) return
+    if (moves.length === 0) return
     const last = Math.ceil(moves.length / 2)
     for (const n of [last - 1, last]) {
       if (n < 1 || !canExplain(n)) continue
       if (requested.current.has(explanationKey(n, fullMove(moves, n)))) continue
       explain(n)
     }
-  }, [autoExplain, moves, canExplain, explain])
+  }, [moves, canExplain, explain])
 
   // Cancel explanations still streaming for full moves that are no longer complete
   // after keeping `ply` plies, so replaying them later starts a fresh explanation.
@@ -316,9 +314,9 @@ export function useGame() {
 
   return {
     bot, botId, playerColor, moves, fen, game, evals, classifications, explanations, thread, review, hint,
-    botThinking, gameOver, result, autoExplain, engineError,
+    botThinking, gameOver, result, engineError,
     playerMove, undo, newGame, requestHint, explain, canExplain, ask, requestReview,
-    setAutoExplain, resign: () => setResigned(true),
+    resign: () => setResigned(true),
   }
 }
 

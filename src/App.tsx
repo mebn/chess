@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { DEFAULT_POSITION } from 'chess.js'
 import { Board } from './components/Board'
 import { BotPicker } from './components/BotPicker'
-import { CoachSettingsDialog } from './components/CoachSettingsDialog'
-import { SettingsMenu } from './components/SettingsMenu'
-import { describeSettings, loadSettings, saveSettings, type CoachSettings } from './lib/settings'
-import { AnalysisCard, AskCard, ReviewCard } from './components/CoachPanel'
+import { SettingsDialog } from './components/SettingsDialog'
+import { Tooltip } from './components/Tooltip'
+import { SquareHoverContext } from './lib/squareHover'
+import { loadSettings, saveSettings, type CoachSettings } from './lib/settings'
+import { AnalysisPanel, CoachTabs } from './components/CoachPanel'
 import { EvalBar } from './components/EvalBar'
 import { MoveList } from './components/MoveList'
 import { explanationKey, fullMove, useGame } from './hooks/useGame'
@@ -33,6 +34,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme)
   const [coachSettings, setCoachSettings] = useState<CoachSettings>(loadSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hoverSquare, setHoverSquare] = useState<string | null>(null)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -93,6 +95,7 @@ export default function App() {
     classification: g.classifications[m.ply],
   }))
   const pairComplete = pairPlies.length === 2 || g.gameOver
+  const pairExplanation = pairPlies.length ? g.explanations[explanationKey(moveNumber, pairPlies)] : undefined
 
   const myTurn = g.game.turn() === g.playerColor
   const status = (() => {
@@ -118,39 +121,10 @@ export default function App() {
   }
 
   return (
+    <SquareHoverContext.Provider value={setHoverSquare}>
     <div className="app">
-      <div className="corner">
-        <SettingsMenu
-          dark={theme === 'dark'}
-          onToggleDark={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          onOpenCoachSettings={() => setSettingsOpen(true)}
-          coachSummary={describeSettings(coachSettings)}
-        />
-        <button className="btn" onClick={() => setPickerOpen(true)}>New game</button>
-      </div>
-
       <main className="layout">
-        <aside className="left-col">
-          <AnalysisCard
-            moveNumber={moveNumber}
-            plies={pairViews}
-            playerColor={g.playerColor}
-            explanation={pairPlies.length ? g.explanations[explanationKey(moveNumber, pairPlies)] : undefined}
-            canExplain={g.canExplain(moveNumber)}
-            waitingForReply={!pairComplete}
-            onExplain={() => g.explain(moveNumber)}
-            autoExplain={g.autoExplain}
-            onToggleAuto={g.setAutoExplain}
-          />
-        </aside>
-
         <section className="board-col">
-          <div className="player">
-            <span className="avatar bot">{g.bot.name[0]}</span>
-            <span className="player-name">{g.bot.name}</span>
-            <span className="player-rating">{g.bot.rating}</span>
-            {g.botThinking && <span className="thinking-dot" />}
-          </div>
 
           <div className="board-row">
             <EvalBar evaluation={g.evals[shownFen]} flipped={g.playerColor === 'b'} />
@@ -161,17 +135,13 @@ export default function App() {
                 interactive={!viewing && !g.gameOver && !g.botThinking && myTurn}
                 lastMove={shownMove ? { from: shownMove.uci.slice(0, 2), to: shownMove.uci.slice(2, 4) } : undefined}
                 hintSquare={hintSquare}
+                hoverSquare={hoverSquare}
                 arrows={arrows}
                 onMove={g.playerMove}
               />
             </div>
           </div>
 
-          <div className="player">
-            <span className="avatar you">Y</span>
-            <span className="player-name">You</span>
-            <span className="player-rating">{g.playerColor === 'w' ? 'White' : 'Black'}</span>
-          </div>
 
           <div className="moves-strip">
             <MoveList moves={g.moves} classifications={g.classifications} activePly={ply} onSelect={(p) => setViewPly(p === livePly ? null : p)} />
@@ -187,22 +157,50 @@ export default function App() {
                 <button className="btn subtle" onClick={g.resign} disabled={g.gameOver || g.moves.length === 0}>Resign</button>
               </>
             )}
+            <span className="spacer" />
+            <button className="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
+            <button className="btn" onClick={() => setPickerOpen(true)}>New game</button>
           </div>
           <p className={`status ${g.result ? 'over' : ''}`}>{status}</p>
         </section>
 
         <aside className="right-col">
-          <AskCard thread={g.thread} onAsk={g.ask} agentLabel={describeSettings(coachSettings)} />
-          {g.moves.length >= 2 && <ReviewCard review={g.review} onReview={g.requestReview} />}
+          <CoachTabs
+            analysis={
+              <AnalysisPanel
+                moveNumber={moveNumber}
+                plies={pairViews}
+                playerColor={g.playerColor}
+                explanation={pairExplanation}
+                canExplain={g.canExplain(moveNumber)}
+                waitingForReply={!pairComplete}
+                onExplain={() => g.explain(moveNumber)}
+              />
+            }
+            analysisLoading={pairExplanation?.status === 'loading'}
+            thread={g.thread}
+            onAsk={g.ask}
+            review={g.review}
+            canReview={g.moves.length >= 2}
+            onReview={g.requestReview}
+          />
         </aside>
       </main>
 
+      <Tooltip />
       {settingsOpen && (
-        <CoachSettingsDialog settings={coachSettings} onSave={saveCoachSettings} onClose={() => setSettingsOpen(false)} />
+        <SettingsDialog
+          dark={theme === 'dark'}
+          onToggleDark={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          settings={coachSettings}
+          onSave={saveCoachSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
       )}
       {pickerOpen && (
         <BotPicker currentBotId={g.botId} currentColor={g.playerColor} onPick={startNewGame} onClose={() => setPickerOpen(false)} />
       )}
     </div>
+    </SquareHoverContext.Provider>
   )
 }

@@ -1,6 +1,6 @@
 :root {
-  /* Board edge length: as large as the viewport height allows (room for player bars and controls). */
-  --board: min(960px, calc(100vh - 290px));
+  /* Board edge length: as large as the viewport height allows (room for the move row and controls). */
+  --board: min(960px, calc(100vh - 210px));
   --board-row: calc(var(--board) + 28px); /* board plus the eval bar */
   --bg: #ffffff;
   --surface: #ffffff;
@@ -55,10 +55,9 @@ button { font: inherit; color: inherit; }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 
-.corner { position: fixed; top: 16px; right: 20px; display: flex; gap: 8px; z-index: 5; }
 
 .layout {
-  flex: 1; display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 28px;
+  flex: 1; display: grid; grid-template-columns: minmax(0, var(--board-row)) 480px; gap: 32px; justify-content: center;
   align-items: start; width: 100%; margin: 0 auto; padding: 20px 28px 28px;
 }
 
@@ -72,16 +71,6 @@ button { font: inherit; color: inherit; }
   line-height: 1; opacity: 0.85; pointer-events: none; user-select: none; z-index: 0;
 }
 
-.player { display: flex; align-items: center; gap: 10px; width: 100%; max-width: var(--board-row); padding-left: 28px; }
-.avatar {
-  width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
-  font-size: 13px; font-weight: 600;
-}
-.avatar.bot { background: var(--avatar-bot); color: #fff; }
-.avatar.you { background: var(--subtle); border: 1px solid var(--border); }
-.player-name { font-weight: 600; font-size: 14px; }
-.player-rating { color: var(--muted); font-size: 13px; }
-.thinking-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1s infinite ease-in-out; }
 
 .eval-bar {
   position: relative; width: 18px; border-radius: 4px; overflow: hidden;
@@ -99,7 +88,7 @@ button { font: inherit; color: inherit; }
 .eval-bar-label.on-white { color: #403d39; }
 .eval-bar-label.on-black { color: #f5f5f2; }
 
-.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-left: 28px; width: 100%; max-width: var(--board-row); justify-content: center; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-left: 28px; width: 100%; max-width: var(--board-row); justify-content: flex-start; }
 .status { margin: 2px 0 0; color: var(--muted); font-size: 14px; min-height: 20px; text-align: center; }
 .status.over { color: var(--text); font-weight: 600; }
 
@@ -118,8 +107,7 @@ button { font: inherit; color: inherit; }
 .icon-btn { border: none; background: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
 
 /* Side columns */
-.left-col, .right-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.right-col { margin-top: 48px; } /* clear the New game and theme buttons */
+.right-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .card {
   border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; background: var(--surface);
   display: flex; flex-direction: column; min-height: 0;
@@ -127,9 +115,7 @@ button { font: inherit; color: inherit; }
 .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
 /* Cards grow with their content up to a limit, then scroll inside. */
 .card-body { overflow-y: auto; min-height: 0; flex: 1; margin-right: -8px; padding-right: 8px; }
-.analysis-card { max-height: calc(100vh - 48px); }
-.ask-card { max-height: 640px; }
-.review-card { max-height: 420px; }
+.coach-card { max-height: calc(100vh - 48px); }
 .ply-list { display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
 .card-head h3 { margin: 0; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .muted { color: var(--muted); }
@@ -187,8 +173,6 @@ button { font: inherit; color: inherit; }
 .typing span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 
-.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
-.toggle input { accent-color: var(--text); }
 
 .suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .chip {
@@ -227,35 +211,23 @@ button { font: inherit; color: inherit; }
 .bot-rating { color: var(--muted); font-weight: 500; margin-left: 4px; }
 .bot-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
 
-/* Medium screens: board on top, the two side columns next to each other below it. */
-@media (max-width: 1240px) {
-  :root { --board: min(960px, calc(100vh - 220px)); }
-  .layout { grid-template-columns: 1fr 1fr; padding-top: 68px; }
-  .right-col { margin-top: 0; }
-  .board-col { grid-column: 1 / -1; grid-row: 1; }
+/* Narrow screens: the coach column moves below the board. */
+@media (max-width: 1080px) {
+  :root { --board: min(960px, calc(100vh - 150px)); }
+  .layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
-  .layout { grid-template-columns: 1fr; gap: 20px; padding: 64px 16px 16px; }
-  .corner { top: 12px; right: 16px; }
+  .layout { grid-template-columns: 1fr; gap: 20px; padding: 16px; }
   .bot-grid { grid-template-columns: 1fr; }
 }
 
-/* Settings dropdown */
-.menu { position: relative; }
-.caret { font-size: 10px; color: var(--muted); margin-left: 2px; }
-.btn.pressed { background: var(--subtle); border-color: var(--border-strong); }
-.menu-panel {
-  position: absolute; right: 0; top: calc(100% + 6px); min-width: 250px; padding: 6px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+/* Settings dialog */
+.section-title { margin: 22px 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 14px; cursor: pointer;
 }
-.menu-item {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
-  border: none; background: none; text-align: left; padding: 9px 10px; border-radius: 7px; font-size: 14px; cursor: pointer;
-}
-.menu-item:hover { background: var(--subtle); }
-.menu-item.column { flex-direction: column; align-items: flex-start; gap: 2px; }
-.menu-sub { font-size: 12px; color: var(--muted); }
-.menu-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+.setting-row:hover { background: var(--subtle); }
 .switch { position: relative; width: 32px; height: 18px; border-radius: 999px; background: var(--border-strong); transition: background 0.15s; flex-shrink: 0; }
 .switch::after {
   content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
@@ -285,8 +257,28 @@ button { font: inherit; color: inherit; }
 .spacer { flex: 1; }
 .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
 .btn.primary:hover:not(:disabled) { background: var(--text); opacity: 0.88; }
-.tiny { font-size: 11px; text-align: right; }
 .card-head h3 { white-space: nowrap; }
-.card-head .tiny { min-width: 0; margin-left: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Scroll containers ignore end padding, so add a spacer to keep the last move fully visible. */
 .move-list::after { content: ''; flex: 0 0 6px; }
+/* Squares and moves in coach text; hovering highlights the square on the board. */
+.sq-ref { border-bottom: 1px dotted var(--muted); cursor: default; border-radius: 2px; }
+.sq-ref:hover { background: rgba(50, 120, 230, 0.15); border-bottom-color: rgb(50, 120, 230); }
+
+/* Tabs in the right-hand coach card */
+.card-head.tabs { justify-content: flex-start; gap: 4px; border-bottom: 1px solid var(--border); margin: -4px -16px 12px; padding: 0 12px; }
+.tab {
+  position: relative; border: none; background: none; padding: 6px 6px 10px; margin-bottom: -1px; cursor: pointer;
+  font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  border-bottom: 2px solid transparent;
+}
+.tab + .tab { margin-left: 10px; }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--text); border-bottom-color: var(--text); }
+.tab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-left: 6px; vertical-align: middle; animation: pulse 1s infinite ease-in-out; }
+.review-btn { margin-top: 12px; }
+/* Plain-words tooltip for chess notation, e.g. "Nxf7+" -> "Knight takes on f7, check". */
+.tooltip {
+  position: fixed; transform: translate(-50%, calc(-100% - 6px)); max-width: 300px;
+  background: var(--text); color: var(--bg); font-size: 12px; font-weight: 500; line-height: 1.3; white-space: nowrap;
+  padding: 5px 8px; border-radius: 6px; pointer-events: none; z-index: 50; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

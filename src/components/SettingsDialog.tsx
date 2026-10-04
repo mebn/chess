@@ -9,6 +9,8 @@ type AgentInfo = {
 }
 
 type Props = {
+  dark: boolean
+  onToggleDark: () => void
   settings: CoachSettings
   onSave: (s: CoachSettings) => void
   onClose: () => void
@@ -17,7 +19,7 @@ type Props = {
 const AGENTS: Agent[] = ['claude', 'codex', 'custom']
 const TEST_PROMPT = 'Reply with one short sentence: why is 1. e4 a good first move?'
 
-export function CoachSettingsDialog({ settings, onSave, onClose }: Props) {
+export function SettingsDialog({ dark, onToggleDark, settings, onSave, onClose }: Props) {
   const [draft, setDraft] = useState<CoachSettings>(settings)
   const [info, setInfo] = useState<AgentInfo | null>(null)
   const [test, setTest] = useState<{ status: 'idle' | 'running' | 'done' | 'error'; text: string }>({ status: 'idle', text: '' })
@@ -48,11 +50,19 @@ export function CoachSettingsDialog({ settings, onSave, onClose }: Props) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Coach settings">
+      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Settings">
         <div className="modal-head">
-          <h2>Coach settings</h2>
+          <h2>Settings</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </div>
+
+        <h3 className="section-title">Appearance</h3>
+        <button className="setting-row" role="switch" aria-checked={dark} onClick={onToggleDark}>
+          <span>Dark mode</span>
+          <span className={`switch ${dark ? 'on' : ''}`} aria-hidden />
+        </button>
+
+        <h3 className="section-title">Coach</h3>
         <p className="muted small">The coach runs a CLI agent on this machine using its own login.</p>
 
         <div className="field">

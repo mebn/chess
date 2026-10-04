@@ -10,6 +10,7 @@ type Props = {
   interactive: boolean
   lastMove?: { from: string; to: string }
   hintSquare?: string
+  hoverSquare?: string | null
   arrows?: Arrow[]
   onMove: (from: string, to: string) => boolean
 }
@@ -23,7 +24,7 @@ function isLightSquare(square: string) {
   return (file + rank) % 2 === 0
 }
 
-export function Board({ fen, orientation, interactive, lastMove, hintSquare, arrows = [], onMove }: Props) {
+export function Board({ fen, orientation, interactive, lastMove, hintSquare, hoverSquare, arrows = [], onMove }: Props) {
   // The selection is tied to the position it was made in, so it clears itself when the position changes.
   const [selection, setSelection] = useState<{ fen: string; square: string } | null>(null)
   const selected = selection?.fen === fen ? selection.square : null
@@ -46,6 +47,13 @@ export function Board({ fen, orientation, interactive, lastMove, hintSquare, arr
       if (king) styles[king.square] = { ...styles[king.square], background: 'radial-gradient(circle, rgba(230, 40, 40, 0.9) 0%, rgba(230, 40, 40, 0.5) 40%, transparent 72%)' }
     }
     if (hintSquare) styles[hintSquare] = { ...styles[hintSquare], boxShadow: 'inset 0 0 0 4px rgba(21, 120, 27, 0.85)' }
+    if (hoverSquare) {
+      styles[hoverSquare] = {
+        ...styles[hoverSquare],
+        background: 'rgba(50, 120, 230, 0.45)',
+        boxShadow: 'inset 0 0 0 3px rgba(30, 95, 200, 0.9)',
+      }
+    }
     if (selected) styles[selected] = { ...styles[selected], background: 'rgba(20, 85, 30, 0.5)' }
     for (const t of targets) {
       styles[t.to] = {
@@ -57,7 +65,7 @@ export function Board({ fen, orientation, interactive, lastMove, hintSquare, arr
       }
     }
     return styles
-  }, [chess, hintSquare, lastMove, selected, targets])
+  }, [chess, hintSquare, hoverSquare, lastMove, selected, targets])
 
   const ownColor = orientation === 'white' ? 'w' : 'b'
   const isOwnPiece = (pieceType?: string) => interactive && !!pieceType && pieceType.startsWith(ownColor)
