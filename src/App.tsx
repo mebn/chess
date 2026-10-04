@@ -156,7 +156,7 @@ export default function App() {
             )}
             <span className="spacer" />
             <button className="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
-            <button className="btn" onClick={() => setPickerOpen(true)}>New game</button>
+            <button className="btn" onClick={() => setPickerOpen(true)}>New</button>
           </div>
         </section>
 

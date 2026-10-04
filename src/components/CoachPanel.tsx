@@ -123,14 +123,14 @@ export function CoachTabs(props: {
     <section className="card coach-card">
       <div className="card-head tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'analysis'} className={`tab ${tab === 'analysis' ? 'on' : ''}`} onClick={() => setTab('analysis')}>
-          Move analysis
+          Move
           {analysisLoading && tab !== 'analysis' && <span className="tab-dot" />}
         </button>
         <button role="tab" aria-selected={tab === 'ask'} className={`tab ${tab === 'ask' ? 'on' : ''}`} onClick={() => setTab('ask')}>
-          Ask your coach
+          Ask
         </button>
         <button role="tab" aria-selected={tab === 'review'} className={`tab ${tab === 'review' ? 'on' : ''}`} onClick={() => setTab('review')}>
-          Game review
+          Review
           {review?.status === 'loading' && tab !== 'review' && <span className="tab-dot" />}
         </button>
       </div>
