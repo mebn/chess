@@ -104,12 +104,17 @@ FEN: ${last.fenAfter}
 Stockfish data (scores are from White's perspective, in pawns):
 ${details.join('\n\n')}
 
-Expected continuation now: ${after?.pvSan.join(' ') || 'none'}
+Engine's recommended next move for ${sideName(last.color === 'w' ? 'b' : 'w')} now: ${after?.bestMoveSan ?? 'unknown'} (expected continuation: ${after?.pvSan.join(' ') || 'none'})
 
-Be brief. For each move above, in order, write one or two short sentences starting with the move in bold: what it does and whether it was good. If my move was not the best, say in one sentence why the engine move is better. If the bot's move was a mistake, say in a few words how I can exploit it.
-Then one line starting with **Lesson:** (one short sentence).
+Format the answer as exactly four short paragraphs separated by blank lines, in this order:
+**${moveLabel(first)}** followed by one or two short sentences: what the move does and whether it was good. If it was not the engine's best, say in one sentence why the engine move is better.
+${plies.length > 1 ? `**${moveLabel(plies[1].move)}** followed by the same kind of explanation. If it was a mistake by the bot, say in a few words how I can exploit it.` : 'A short note that the second move has not been played yet.'}
+**Recommended next move:** the engine's recommended next move above, with one short sentence on why it is good.
+**Lesson:** one short sentence I can take away.
 
-No intro, no headings, no extra sections. Under 90 words in total.`
+Start the first two paragraphs with the move itself in bold, exactly as written above, not with words like "First move" or "Second move".
+
+No intro, no headings, no extra sections. Under 110 words in total.`
 }
 
 export function askPrompt(opts: {

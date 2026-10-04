@@ -98,17 +98,6 @@ export default function App() {
   const pairExplanation = pairPlies.length ? g.explanations[explanationKey(moveNumber, pairPlies)] : undefined
 
   const myTurn = g.game.turn() === g.playerColor
-  const status = (() => {
-    if (g.engineError) return `Engine error: ${g.engineError}`
-    if (g.result) return g.result.text
-    if (viewing) return `Reviewing move ${Math.ceil(ply / 2)}. Use ← → or click "Back to game".`
-    if (g.botThinking) return `${g.bot.name} is thinking…`
-    if (hintActive && !liveEval) return 'Looking for a hint…'
-    if (hintActive && g.hint?.level === 1) return 'Hint: move the highlighted piece. Press Hint again to see the move.'
-    if (hintActive && g.hint?.level === 2 && liveEval?.bestMoveSan) return `Hint: ${liveEval.bestMoveSan}`
-    return g.game.inCheck() ? 'You are in check' : 'Your move'
-  })()
-
   const startNewGame = (botId: string, color: Color) => {
     g.newGame(botId, color)
     setPickerOpen(false)
@@ -139,6 +128,14 @@ export default function App() {
                 arrows={arrows}
                 onMove={g.playerMove}
               />
+              {g.result && !viewing && (
+                <div className="result-overlay" role="status">
+                  <div className="result-card">
+                    <div className="result-score">{g.result.score}</div>
+                    <div className="result-text">{g.result.text}</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -161,7 +158,6 @@ export default function App() {
             <button className="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
             <button className="btn" onClick={() => setPickerOpen(true)}>New game</button>
           </div>
-          <p className={`status ${g.result ? 'over' : ''}`}>{status}</p>
         </section>
 
         <aside className="right-col">
