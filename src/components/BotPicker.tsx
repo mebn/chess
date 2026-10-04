@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useHotkeys } from '../hooks/useHotkeys'
+import { Key } from './Key'
 import { BOTS } from '../lib/bots'
 import type { Color } from '../lib/coach'
 
@@ -12,6 +14,13 @@ type Props = {
 export function BotPicker({ currentBotId, currentColor, onPick, onClose }: Props) {
   const [color, setColor] = useState<Color>(currentColor)
 
+  useHotkeys({
+    escape: onClose,
+    w: () => setColor('w'),
+    b: () => setColor('b'),
+    ...Object.fromEntries(BOTS.map((b, i) => [String(i + 1), () => onPick(b.id, color)])),
+  })
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Choose opponent">
@@ -23,15 +32,16 @@ export function BotPicker({ currentBotId, currentColor, onPick, onClose }: Props
         <div className="picker-row">
           <span className="muted small">Play as</span>
           <div className="segmented">
-            <button className={color === 'w' ? 'on' : ''} onClick={() => setColor('w')}>♔ White</button>
-            <button className={color === 'b' ? 'on' : ''} onClick={() => setColor('b')}>♚ Black</button>
+            <button className={color === 'w' ? 'on' : ''} onClick={() => setColor('w')}>♔ White<Key k="W" /></button>
+            <button className={color === 'b' ? 'on' : ''} onClick={() => setColor('b')}>♚ Black<Key k="B" /></button>
           </div>
         </div>
 
         <p className="muted small">Choose an opponent.</p>
         <div className="bot-grid">
-          {BOTS.map((b) => (
+          {BOTS.map((b, i) => (
             <button key={b.id} className={`bot-card ${b.id === currentBotId ? 'current' : ''}`} onClick={() => onPick(b.id, color)}>
+              <Key k={String(i + 1)} />
               <span className="bot-avatar">{b.name[0]}</span>
               <span className="bot-info">
                 <span className="bot-name">

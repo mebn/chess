@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useHotkeys } from '../hooks/useHotkeys'
+import { Key } from './Key'
 import Markdown from 'react-markdown'
 import { streamCoach } from '../lib/coach'
 import { AGENT_LABEL, CLAUDE_MODELS, EFFORTS, type Agent, type CoachSettings } from '../lib/settings'
@@ -48,6 +50,8 @@ export function SettingsDialog({ dark, onToggleDark, settings, onSave, onClose }
       .catch((e) => setTest({ status: 'error', text: String(e.message ?? e) }))
   }
 
+  useHotkeys({ escape: onClose, d: onToggleDark, t: test.status === 'running' ? undefined : runTest })
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Settings">
@@ -58,7 +62,7 @@ export function SettingsDialog({ dark, onToggleDark, settings, onSave, onClose }
 
         <h3 className="section-title">Appearance</h3>
         <button className="setting-row" role="switch" aria-checked={dark} onClick={onToggleDark}>
-          <span>Dark mode</span>
+          <span>Dark mode<Key k="D" /></span>
           <span className={`switch ${dark ? 'on' : ''}`} aria-hidden />
         </button>
 
@@ -133,7 +137,7 @@ export function SettingsDialog({ dark, onToggleDark, settings, onSave, onClose }
 
         <div className="modal-actions">
           <button className="btn subtle" onClick={runTest} disabled={test.status === 'running'}>
-            {test.status === 'running' ? 'Testing…' : 'Test'}
+            {test.status === 'running' ? 'Testing…' : 'Test'}<Key k="T" />
           </button>
           <span className="spacer" />
           <button className="btn subtle" onClick={onClose}>Cancel</button>

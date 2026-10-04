@@ -58,6 +58,7 @@ export function useGame() {
   const [thread, setThread] = useState<ThreadEntry[]>(saved.thread ?? [])
   const [review, setReview] = useState<CoachText | null>(saved.review ?? null)
   const [resigned, setResigned] = useState(saved.resigned ?? false)
+  const [redoStack, setRedoStack] = useState<MoveRecord[]>([])
   const [hint, setHint] = useState<Hint | null>(null)
   const [botThinking, setBotThinking] = useState(false)
   const [engineError, setEngineError] = useState<string | null>(null)
@@ -130,8 +131,9 @@ export function useGame() {
     }
   }, [moves, evals])
 
-  const applyMove = useCallback((from: string, to: string, promotion?: string): boolean => {
-    const chess = new Chess(fen)
+  const applyMove = useCallback((from: string, to: string, promotion?: string, base: MoveRecord[] = moves): boolean => {
+    const baseFen = base.length ? base[base.length - 1].fenAfter : DEFAULT_POSITION
+    const chess = new Chess(baseFen)
     let move
     try {
       move = chess.move({ from, to, promotion: promotion ?? 'q' })
@@ -139,23 +141,35 @@ export function useGame() {
       return false
     }
     const record: MoveRecord = {
-      ply: moves.length + 1,
+      ply: base.length + 1,
       color: move.color,
       san: move.san,
       uci: move.from + move.to + (move.promotion ?? ''),
-      fenBefore: fen,
+      fenBefore: baseFen,
       fenAfter: chess.fen(),
     }
-    setMoves((prev) => [...prev, record])
+    setMoves([...base, record])
+    setRedoStack([])
     setHint(null)
     return true
-  }, [fen, moves.length])
+  }, [moves])
 
-  /** Called by the board when the player tries a move. */
-  const playerMove = useCallback((from: string, to: string): boolean => {
-    if (gameOver || botThinking || game.turn() !== playerColor) return false
-    return applyMove(from, to)
-  }, [applyMove, botThinking, game, gameOver, playerColor])
+  /** Called by the board when the player tries a move. `atPly` plays from an earlier position, dropping the moves after it. */
+  const playerMove = useCallback((from: string, to: string, atPly?: number): boolean => {
+    if (botThinking) return false
+    if (atPly === undefined || atPly >= moves.length) {
+      if (gameOver || game.turn() !== playerColor) return false
+      return applyMove(from, to)
+    }
+    const base = moves.slice(0, atPly)
+    const chess = new Chess(base.length ? base[base.length - 1].fenAfter : DEFAULT_POSITION)
+    if (chess.isGameOver() || chess.turn() !== playerColor) return false
+    if (!applyMove(from, to, undefined, base)) return false
+    abortFrom(atPly)
+    setResigned(false)
+    setReview(null)
+    return true
+  }, [applyMove, botThinking, game, gameOver, moves, playerColor])
 
   // The bot moves whenever it is its turn.
   useEffect(() => {
@@ -269,10 +283,20 @@ export function useGame() {
     if (keep >= moves.length && !resigned) return
     abortFrom(keep)
     setResigned(false)
+    setRedoStack((r) => [...moves.slice(keep), ...r])
     setMoves(moves.slice(0, keep))
     setHint(null)
     setReview(null)
   }, [botThinking, moves, playerColor, resigned])
+
+  const redo = useCallback(() => {
+    if (redoStack.length === 0 || botThinking) return
+    // Mirror undo: bring back your move together with the bot's reply.
+    const n = redoStack[0].color === playerColor && redoStack.length > 1 ? 2 : 1
+    setMoves([...moves, ...redoStack.slice(0, n)])
+    setRedoStack(redoStack.slice(n))
+    setHint(null)
+  }, [botThinking, moves, playerColor, redoStack])
 
   const newGame = useCallback((nextBotId?: string, color?: Color) => {
     for (const c of controllers.current.values()) c.abort()
@@ -281,6 +305,7 @@ export function useGame() {
     if (nextBotId) setBotId(nextBotId)
     if (color) setPlayerColor(color)
     setMoves([])
+    setRedoStack([])
     setExplanations({})
     setThread([])
     setReview(null)
@@ -315,7 +340,7 @@ export function useGame() {
   return {
     bot, botId, playerColor, moves, fen, game, evals, classifications, explanations, thread, review, hint,
     botThinking, gameOver, result, engineError,
-    playerMove, undo, newGame, requestHint, explain, canExplain, ask, requestReview,
+    playerMove, undo, redo, canRedo: redoStack.length > 0 && !botThinking, newGame, requestHint, explain, canExplain, ask, requestReview,
     resign: () => setResigned(true),
   }
 }

@@ -3,6 +3,8 @@ import { CLASSIFICATION_LABEL, formatScore, type Classification, type PositionEv
 import { moveLabel, type Color, type MoveRecord } from '../lib/coach'
 import type { CoachText, ThreadEntry } from '../hooks/useGame'
 import { describeSan } from '../lib/notation'
+import { useHotkeys } from '../hooks/useHotkeys'
+import { Key } from './Key'
 import { SquareMarkdown } from './SquareText'
 
 export type PlyView = {
@@ -76,10 +78,11 @@ export function AnalysisPanel(props: {
             ) : (
               <button className="btn subtle" onClick={onExplain} disabled={!canExplain}>
                 {canExplain ? 'Explain this move' : 'Analysing…'}
+                {canExplain && <Key k="E" />}
               </button>
             )}
             {explanation?.status === 'error' && (
-              <button className="btn subtle" onClick={onExplain}>Try again</button>
+              <button className="btn subtle" onClick={onExplain}>Try again<Key k="E" /></button>
             )}
           </>
         )}
@@ -98,11 +101,15 @@ export function CoachTabs(props: {
   review: CoachText | null
   canReview: boolean
   onReview: () => void
+  onExplain: () => void
+  canExplain: boolean
+  hotkeysEnabled: boolean
 }) {
-  const { analysis, analysisLoading, thread, onAsk, review, canReview, onReview } = props
+  const { onExplain, canExplain, hotkeysEnabled, analysis, analysisLoading, thread, onAsk, review, canReview, onReview } = props
   const [tab, setTab] = useState<CoachTab>('analysis')
   const [question, setQuestion] = useState('')
   const bodyRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const last = thread[thread.length - 1]
 
   // Keep the newest answer in view while it streams in.
@@ -110,6 +117,22 @@ export function CoachTabs(props: {
     const el = bodyRef.current
     if (el && tab === 'ask') el.scrollTop = el.scrollHeight
   }, [tab, thread.length, last?.answer])
+
+  // Jump straight into typing when the Ask tab opens.
+  useEffect(() => {
+    if (tab === 'ask') inputRef.current?.focus()
+  }, [tab])
+
+  useHotkeys(
+    {
+      '1': () => setTab('analysis'),
+      '2': () => setTab('ask'),
+      '3': () => setTab('review'),
+      e: tab === 'analysis' && canExplain ? onExplain : undefined,
+      g: tab === 'review' && canReview && review?.status !== 'loading' ? onReview : undefined,
+    },
+    hotkeysEnabled,
+  )
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -123,14 +146,14 @@ export function CoachTabs(props: {
     <section className="card coach-card">
       <div className="card-head tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'analysis'} className={`tab ${tab === 'analysis' ? 'on' : ''}`} onClick={() => setTab('analysis')}>
-          Move
+          Move<Key k="1" />
           {analysisLoading && tab !== 'analysis' && <span className="tab-dot" />}
         </button>
         <button role="tab" aria-selected={tab === 'ask'} className={`tab ${tab === 'ask' ? 'on' : ''}`} onClick={() => setTab('ask')}>
-          Ask
+          Ask<Key k="2" />
         </button>
         <button role="tab" aria-selected={tab === 'review'} className={`tab ${tab === 'review' ? 'on' : ''}`} onClick={() => setTab('review')}>
-          Review
+          Review<Key k="3" />
           {review?.status === 'loading' && tab !== 'review' && <span className="tab-dot" />}
         </button>
       </div>
@@ -156,7 +179,7 @@ export function CoachTabs(props: {
             </div>
           </div>
           <form className="ask" onSubmit={submit}>
-            <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about the position…" />
+            <input ref={inputRef} value={question} onKeyDown={(e) => e.key === 'Escape' && e.currentTarget.blur()} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about the position…" />
             <button className="btn" type="submit" disabled={!question.trim()}>Ask</button>
           </form>
         </>
@@ -172,7 +195,7 @@ export function CoachTabs(props: {
           )}
           {review?.status !== 'loading' && (
             <button className="btn review-btn" onClick={onReview} disabled={!canReview}>
-              {review ? 'Review again' : 'Review game'}
+              {review ? 'Review again' : 'Review game'}<Key k="G" />
             </button>
           )}
         </div>

@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { DEFAULT_POSITION } from 'chess.js'
+import { Chess, DEFAULT_POSITION } from 'chess.js'
 import { Board } from './components/Board'
 import { BotPicker } from './components/BotPicker'
 import { SettingsDialog } from './components/SettingsDialog'
+import { Key } from './components/Key'
 import { Tooltip } from './components/Tooltip'
 import { SquareHoverContext } from './lib/squareHover'
 import { loadSettings, saveSettings, type CoachSettings } from './lib/settings'
 import { AnalysisPanel, CoachTabs } from './components/CoachPanel'
 import { EvalBar } from './components/EvalBar'
 import { MoveList } from './components/MoveList'
+import { useHotkeys } from './hooks/useHotkeys'
 import { explanationKey, fullMove, useGame } from './hooks/useGame'
 import type { Color } from './lib/coach'
 
@@ -66,6 +68,20 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const modalOpen = settingsOpen || pickerOpen
+  useHotkeys(
+    {
+      u: g.undo,
+      r: g.canRedo ? g.redo : undefined,
+      h: () => !viewing && g.requestHint(),
+      x: () => !viewing && g.resign(),
+      l: () => setViewPly(null),
+      s: () => setSettingsOpen(true),
+      n: () => setPickerOpen(true),
+    },
+    !modalOpen,
+  )
+
   // Hint: first press highlights the piece, second press shows the full move.
   const liveEval = g.evals[g.fen]
   const hintActive = !viewing && g.hint?.fen === g.fen
@@ -98,6 +114,9 @@ export default function App() {
   const pairExplanation = pairPlies.length ? g.explanations[explanationKey(moveNumber, pairPlies)] : undefined
 
   const myTurn = g.game.turn() === g.playerColor
+  // Looking at an earlier position, you can play on from it when it is your turn there.
+  const shownGame = new Chess(shownFen)
+  const canPlayHere = viewing ? !shownGame.isGameOver() && shownGame.turn() === g.playerColor : !g.gameOver && myTurn
   const startNewGame = (botId: string, color: Color) => {
     g.newGame(botId, color)
     setPickerOpen(false)
@@ -121,12 +140,16 @@ export default function App() {
               <Board
                 fen={shownFen}
                 orientation={g.playerColor === 'w' ? 'white' : 'black'}
-                interactive={!viewing && !g.gameOver && !g.botThinking && myTurn}
+                interactive={!g.botThinking && canPlayHere}
                 lastMove={shownMove ? { from: shownMove.uci.slice(0, 2), to: shownMove.uci.slice(2, 4) } : undefined}
                 hintSquare={hintSquare}
                 hoverSquare={hoverSquare}
                 arrows={arrows}
-                onMove={g.playerMove}
+                onMove={(from, to) => {
+                  const ok = g.playerMove(from, to, viewing ? ply : undefined)
+                  if (ok) setViewPly(null)
+                  return ok
+                }}
               />
               {g.result && !viewing && (
                 <div className="result-overlay" role="status">
@@ -145,18 +168,19 @@ export default function App() {
           </div>
 
           <div className="controls">
+            <button className="btn" onClick={g.undo} disabled={g.moves.length === 0}>Undo<Key k="U" /></button>
+            <button className="btn" onClick={g.redo} disabled={!g.canRedo}>Redo<Key k="R" /></button>
             {viewing ? (
-              <button className="btn" onClick={() => setViewPly(null)}>Back to game</button>
+              <button className="btn" onClick={() => setViewPly(null)}>Back to game<Key k="L" /></button>
             ) : (
               <>
-                <button className="btn" onClick={g.undo} disabled={g.moves.length === 0}>Undo</button>
-                <button className="btn" onClick={g.requestHint} disabled={g.gameOver || g.botThinking || !myTurn}>Hint</button>
-                <button className="btn subtle" onClick={g.resign} disabled={g.gameOver || g.moves.length === 0}>Resign</button>
+                <button className="btn" onClick={g.requestHint} disabled={g.gameOver || g.botThinking || !myTurn}>Hint<Key k="H" /></button>
+                <button className="btn subtle" onClick={g.resign} disabled={g.gameOver || g.moves.length === 0}>Resign<Key k="X" /></button>
               </>
             )}
             <span className="spacer" />
-            <button className="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
-            <button className="btn" onClick={() => setPickerOpen(true)}>New</button>
+            <button className="btn" onClick={() => setSettingsOpen(true)}>Settings<Key k="S" /></button>
+            <button className="btn" onClick={() => setPickerOpen(true)}>New<Key k="N" /></button>
           </div>
         </section>
 
@@ -179,6 +203,9 @@ export default function App() {
             review={g.review}
             canReview={g.moves.length >= 2}
             onReview={g.requestReview}
+            hotkeysEnabled={!modalOpen}
+            canExplain={g.canExplain(moveNumber) && (!pairExplanation || pairExplanation.status === 'error')}
+            onExplain={() => g.explain(moveNumber)}
           />
         </aside>
       </main>
