@@ -18,6 +18,17 @@ npm run dev
 
 You need the agent you pick installed and logged in (run `claude` or `codex` once). Model and thinking level are set in Settings, and the Test button there checks that the agent answers.
 
+## Hosting on a server
+
+Copy `.env.example` to `.env` and set `APP_PASSWORD` to a long random string. With a password set, every `/api/*` route (the coach) requires a login, the site asks for the password once (30 day session cookie), failed logins are rate limited, and custom shell commands are disabled unless `ALLOW_CUSTOM_COMMAND=1`. Then:
+
+```bash
+npm run build
+npm run preview
+```
+
+It listens on `127.0.0.1:4173`. Put a reverse proxy with HTTPS (Caddy or nginx) in front, and set `ALLOWED_HOSTS` to your domain. The agent (`claude`) must be installed and logged in on the server.
+
 ## Using it
 
 - Drag pieces or click a piece and then its target square. Pawns always promote to a queen.

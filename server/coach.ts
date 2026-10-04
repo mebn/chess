@@ -12,6 +12,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
+import { authEnabled, handleAuth, isAuthed } from './auth.ts'
 
 type Agent = 'claude' | 'codex' | 'custom'
 
@@ -38,7 +39,12 @@ Ground rules:
 
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = []
-  for await (const chunk of req) chunks.push(chunk as Buffer)
+  let size = 0
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length
+    if (size > MAX_BODY) throw new Error('Request too large')
+    chunks.push(chunk as Buffer)
+  }
   return Buffer.concat(chunks).toString('utf8')
 }
 
@@ -149,6 +155,11 @@ async function runCustom(body: CoachRequest, res: ServerResponse, signal: AbortC
   await runProcess(command, [], `${SYSTEM_PROMPT}\n\n${body.prompt}`, signal, (chunk) => res.write(chunk), { shell: true })
 }
 
+/** Arbitrary shell commands are only allowed locally, or when the server owner opts in. */
+const customAllowed = () => !authEnabled() || process.env.ALLOW_CUSTOM_COMMAND === '1'
+
+const MAX_BODY = 200_000
+
 async function handleCoach(req: IncomingMessage, res: ServerResponse) {
   let body: CoachRequest
   try {
@@ -166,8 +177,9 @@ async function handleCoach(req: IncomingMessage, res: ServerResponse) {
 
   const agent: Agent = body.agent ?? 'claude'
   try {
+    if (agent === 'custom' && !customAllowed()) throw new Error('Custom commands are disabled on this server')
     if (agent === 'codex') await runCodex(body, res, abortController)
-    else if (agent === 'custom') await runCustom(body, res, abortController)
+    else if (agent === 'custom' && customAllowed()) await runCustom(body, res, abortController)
     else await runClaude(body, res, abortController)
   } catch (err) {
     if (!abortController.signal.aborted) {
@@ -215,22 +227,38 @@ function handleAgents(res: ServerResponse) {
   )
 }
 
+type Next = () => void
+
+async function apiMiddleware(req: IncomingMessage, res: ServerResponse, next: Next) {
+  const url = req.url?.split('?')[0] ?? ''
+  if (!url.startsWith('/api/')) return next()
+  res.setHeader('Cache-Control', 'no-store')
+  if (!isSameOrigin(req)) {
+    res.statusCode = 403
+    res.end('Forbidden')
+    return
+  }
+  if (await handleAuth(req, res, url)) return
+  if (!isAuthed(req)) {
+    res.statusCode = 401
+    res.end('Unauthorized')
+    return
+  }
+  if (url === '/api/agents' && req.method === 'GET') return handleAgents(res)
+  if (url === '/api/coach' && req.method === 'POST') return void handleCoach(req, res)
+  res.statusCode = 404
+  res.end('Not found')
+}
+
 export function coachPlugin(): Plugin {
   return {
     name: 'chess-coach',
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const url = req.url?.split('?')[0]
-        if (url !== '/api/coach' && url !== '/api/agents') return next()
-        if (!isSameOrigin(req)) {
-          res.statusCode = 403
-          res.end('Forbidden')
-          return
-        }
-        if (url === '/api/agents' && req.method === 'GET') return handleAgents(res)
-        if (url === '/api/coach' && req.method === 'POST') return void handleCoach(req, res)
-        next()
-      })
+      server.middlewares.use(apiMiddleware)
+    },
+    // `vite preview` serves the built app, so the API has to be mounted there too.
+    configurePreviewServer(server) {
+      server.middlewares.use(apiMiddleware)
     },
   }
 }
